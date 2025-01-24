@@ -36,12 +36,6 @@ int bind_socket_to_addr(TCPServer *server) {
     freeaddrinfo(server->server_info);
     return -1;
   }
-  // listen for connections
-  if (listen(server->socket_fd, server->num_connections) < 0) {
-    close(server->socket_fd);
-    freeaddrinfo(server->server_info);
-    return -1;
-  }
   return 0;
 }
 
@@ -67,6 +61,13 @@ int tcp_server_init(TCPServer *server, int port, int num_connections) {
     fprintf(stderr, "server initialization failed");
     return -1;
   }
+  // listen for connections
+  if (listen(server->socket_fd, server->num_connections) < 0) {
+    close(server->socket_fd);
+    freeaddrinfo(server->server_info);
+    return -1;
+  }
+
   printf("server initialized");
   return 0;
 }
