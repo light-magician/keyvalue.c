@@ -22,6 +22,7 @@ typedef struct {
 } TCPServer;
 
 typedef void (*ClientHandler)(int client_fd, void *context);
+int bind_socket_to_addr(TCPServer *server);
 int tcp_server_init(TCPServer *server, int port, int num_connections);
 int tcp_server_start(TCPServer *server, ClientHandler handler, void *context);
 void tcp_server_cleanup(TCPServer *server);

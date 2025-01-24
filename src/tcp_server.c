@@ -8,24 +8,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-int tcp_server_init(TCPServer *server, int port, int num_connections) {
-  memset(server, 0, sizeof(TCPServer));
-  memset(&server->hints, 0, sizeof(server->hints));
-  // set address information
-  server->hints.ai_family = AF_UNSPEC;     // IPv4 and IPv6 support
-  server->hints.ai_socktype = SOCK_STREAM; // set TCP
-  server->hints.ai_flags = AI_PASSIVE;     // wildcard IP addresses
-  server->port = port;
-  server->num_connections = num_connections;
-  // convert port int to string for getaddrinfo for any int size wo overflow
-  char port_str[6];
-  snprintf(port_str, sizeof(port_str), "%d", port);
-  int status =
-      getaddrinfo(NULL, port_str, &server->hints, &server->server_info);
-  if (status != 0) {
-    fprintf(stderr, "get address info error: %s\n", gai_strerror(status));
-    return -1;
-  }
+int bind_socket_to_addr(TCPServer *server) {
   // search through address structures for a match to bind socket to
   struct addrinfo *addr;
   int set_reuse = 1;
@@ -59,5 +42,31 @@ int tcp_server_init(TCPServer *server, int port, int num_connections) {
     freeaddrinfo(server->server_info);
     return -1;
   }
+  return 0;
+}
+
+int tcp_server_init(TCPServer *server, int port, int num_connections) {
+  memset(server, 0, sizeof(TCPServer));
+  memset(&server->hints, 0, sizeof(server->hints));
+  // set address information
+  server->hints.ai_family = AF_UNSPEC;     // IPv4 and IPv6 support
+  server->hints.ai_socktype = SOCK_STREAM; // set TCP
+  server->hints.ai_flags = AI_PASSIVE;     // wildcard IP addresses
+  server->port = port;
+  server->num_connections = num_connections;
+  // convert port int to string for getaddrinfo for any int size wo overflow
+  char port_str[6];
+  snprintf(port_str, sizeof(port_str), "%d", port);
+  int status =
+      getaddrinfo(NULL, port_str, &server->hints, &server->server_info);
+  if (status != 0) {
+    fprintf(stderr, "get address info error: %s\n", gai_strerror(status));
+    return -1;
+  }
+  if (bind_socket_to_addr(server) < 0) {
+    fprintf(stderr, "server initialization failed");
+    return -1;
+  }
+  printf("server initialized");
   return 0;
 }
