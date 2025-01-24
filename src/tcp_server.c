@@ -39,6 +39,17 @@ int bind_socket_to_addr(TCPServer *server) {
   return 0;
 }
 
+int handle_client_request(ClientConnection *client) {
+  const char *msg = "hello";
+  ssize_t msg_len = strlen(msg);
+  ssize_t bytes_sent = send(client->client_fd, msg, msg_len, 0);
+
+  if (bytes_sent < 0 || bytes_sent != msg_len) {
+    return -1;
+  }
+  return 0;
+}
+
 int tcp_server_init(TCPServer *server, int port, int num_connections) {
   memset(server, 0, sizeof(TCPServer));
   memset(&server->hints, 0, sizeof(server->hints));
@@ -67,7 +78,38 @@ int tcp_server_init(TCPServer *server, int port, int num_connections) {
     freeaddrinfo(server->server_info);
     return -1;
   }
-
   printf("server initialized");
+
+  while (1) {
+    ClientConnection *client = accept_client_connection(server);
+    if (client->client_fd < 0) {
+      continue;
+    }
+    handle_client_request(client);
+    close(client->client_fd);
+    free(client);
+  }
+  printf("server terminated");
   return 0;
+}
+
+ClientConnection *accept_client_connection(TCPServer *server) {
+  // heap allocate a client and return a pointer to it
+  ClientConnection *client =
+      malloc(sizeof(ClientConnection)); // initialize w zeros and NULL
+  if (!client) {
+    return NULL;
+  }
+  // zero out memory to prevent undefined behavior
+  memset(client, 0, sizeof(ClientConnection));
+  // not a pointer to client so no need for ->
+  client->addr_len = sizeof(client->addr);
+  client->client_fd = accept(
+      server->socket_fd, (struct sockaddr *)&client->addr, &client->addr_len);
+  if (client->client_fd < 0) {
+    free(client);
+    return NULL;
+  }
+  printf("server accepted new client connection\n");
+  return client;
 }

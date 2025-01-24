@@ -37,14 +37,14 @@ typedef struct {
  */
 typedef struct {
   int client_fd;
-  struct sockaddr_storage client_addr;
-  socklen_t addr_size;
-}
+  struct sockaddr_storage addr;
+  socklen_t addr_len;
+} ClientConnection;
 
-typedef void (*ClientHandler)(int client_fd, void *context);
+ClientConnection *accept_client_connection(TCPServer *server);
+int handle_client_request(ClientConnection *client);
 int bind_socket_to_addr(TCPServer *server);
 int tcp_server_init(TCPServer *server, int port, int num_connections);
-int tcp_server_start(TCPServer *server, ClientHandler handler, void *context);
 void tcp_server_cleanup(TCPServer *server);
 
 #endif
