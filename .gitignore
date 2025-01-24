@@ -50,3 +50,6 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# compulsory DS_Store hiding
+*.DS_Store
