@@ -13,6 +13,13 @@
 //  protocol independent name resolution
 #include <netdb.h>
 
+/*
+ * address info settings
+ * pointer to linked list of server address info
+ * socket file descriptor
+ * port number
+ * the number of connections the server will accept
+ */
 typedef struct {
   struct addrinfo hints;
   struct addrinfo *server_info;
@@ -20,6 +27,19 @@ typedef struct {
   int port;
   int num_connections;
 } TCPServer;
+
+/*
+ * a client file descriptor
+ * a way to store socket addresses
+ *   of various types IPv4 and IPv6
+ *   including the largest socket address types
+ * length of a stocket address structure
+ */
+typedef struct {
+  int client_fd;
+  struct sockaddr_storage client_addr;
+  socklen_t addr_size;
+}
 
 typedef void (*ClientHandler)(int client_fd, void *context);
 int bind_socket_to_addr(TCPServer *server);
