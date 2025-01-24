@@ -53,3 +53,6 @@ dkms.conf
 
 # compulsory DS_Store hiding
 *.DS_Store
+
+# what is built from the makefile
+build/
