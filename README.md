@@ -1,6 +1,6 @@
 # keyvalue.c
 
-A tiny key value store in pure C
+A tiny key value store with asynchronous handling in pure C
 
 ### compiling
 
