@@ -1,6 +1,10 @@
 # keyvalue.c
 
-A tiny key value store with asynchronous handling in pure C
+A tiny key value store with asynchronous handling in pure C.
+
+Features:
+
+- tcp server with multithreaded client handling
 
 ### compiling
 
