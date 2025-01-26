@@ -27,6 +27,12 @@ A tiny key value store with asynchronous handling in pure C.
 - easy to reason about and debug
 - minimal lock contention
 
+### TCP server
+
+- event driven I/O using epoll
+- non-blocking socket operations
+- event handler callback pattern
+
 ### compiling
 
 ```bash
