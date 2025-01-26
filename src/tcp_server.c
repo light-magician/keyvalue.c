@@ -8,6 +8,11 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+typedef struct {
+  ClientConnection *client;
+  void *context;
+} ThreadContext;
+
 int bind_socket_to_addr(TCPServer *server) {
   // search through address structures for a match to bind socket to
   struct addrinfo *addr;
