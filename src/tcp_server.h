@@ -19,6 +19,7 @@
  * pointer to linked list of server address info
  * socket file descriptor
  * port number
+ * backlog is max number of pending connections
  * the number of connections the server will accept
  * a function pointer for handling generic client reqs
  *  that syntax is a void pointer to a request handler function
@@ -26,12 +27,13 @@
  *  returning behavior
  */
 typedef struct {
-  struct addrinfo hints;
-  struct addrinfo *server_info;
   int socket_fd;
   int port;
-  int num_connections;
+  int backlog;
+  struct addrinfo hints;
+  struct addrinfo *server_info;
   void *(*request_handler)(void *client_connection);
+  void *handler_context;
 } TCPServer;
 
 /*
@@ -50,11 +52,10 @@ typedef struct {
   int client_fd;
   struct sockaddr_storage addr;
   socklen_t addr_len;
-  void *context;
 } ClientConnection;
 
 // core server operations
-int tcp_server_init(TCPServer *server, int port, int num_connections,
+int tcp_server_init(TCPServer *server, int port, int backlog,
                     void *(*request_handler)(void *), void *context);
 void tcp_server_cleanup(TCPServer *server);
 // socker operations
