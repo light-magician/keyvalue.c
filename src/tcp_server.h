@@ -12,15 +12,24 @@
 //  like getaddrinfo(), gethostbyname(), and
 //  protocol independent name resolution
 #include <netdb.h>
-#include <pthread.h>
-
-/*
- * address info settings
- * pointer to linked list of server address info
+/* A Client connectoin only has client socket details
+ *
+ * a client file descriptor
+ * a way to store socket addresses
+ *   of various types IPv4 and IPv6
+ *   including the largest socket address types
+ * length of a stocket address structure
+ */
+typedef struct {
+  int client_fd;
+  struct sockaddr_storage addr;
+  socklen_t addr_len;
+} ClientConnection;
+/* Server handles only networking and threading
+ *
  * socket file descriptor
  * port number
  * backlog is max number of pending connections
- * the number of connections the server will accept
  * a function pointer for handling generic client reqs
  *  that syntax is a void pointer to a request handler function
  *  that has a void pointer as a return type for flexible
@@ -30,39 +39,9 @@ typedef struct {
   int socket_fd;
   int port;
   int backlog;
-  struct addrinfo hints;
-  struct addrinfo *server_info;
-  void *(*request_handler)(void *client_connection);
-  void *handler_context;
+  void (*handle_request)(ClientConnection *client);
 } TCPServer;
-
-/*
- * a client file descriptor
- * a way to store socket addresses
- *   of various types IPv4 and IPv6
- *   including the largest socket address types
- * length of a stocket address structure
- * context is an optional parameter that gets passed
- *  to each client handler thread, which allows sharing
- *  data for whatever structures are downstream of the
- *  TCP server (think like whatever facilitates
- *    or whatever else gets done later on)
- */
-typedef struct {
-  int client_fd;
-  struct sockaddr_storage addr;
-  socklen_t addr_len;
-} ClientConnection;
-
-// core server operations
-int tcp_server_init(TCPServer *server, int port, int backlog,
-                    void *(*request_handler)(void *), void *context);
-void tcp_server_cleanup(TCPServer *server);
-// socker operations
-int bind_socket_to_addr(TCPServer *server);
-ClientConnection *accept_client_connection(TCPServer *server);
-// client handling
-int handle_client_request(ClientConnection *client);
-void cleanup_client_connection(ClientConnection *client);
-
+// core functions
+int tcp_server_start(TCPServer *server);
+void tcp_server_stop(TCPServer *server);
 #endif
