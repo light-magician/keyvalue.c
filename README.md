@@ -2,6 +2,14 @@
 
 A tiny key value store with asynchronous handling in pure C.
 
+### Core Approach
+
+- event loop architecture for I/O
+- thread pool design for CPU work
+- light coupling of server and request handling
+- memory management between components
+- simple error handling
+
 ### Key Design Points:
 
 - event loop handles I/O multiplexing
