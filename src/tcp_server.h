@@ -12,6 +12,12 @@
 //  like getaddrinfo(), gethostbyname(), and
 //  protocol independent name resolution
 #include <netdb.h>
+// event driven polling
+#include <sys/epoll.h>
+
+#define MAX_EVENTS 64
+#define BUFFER_SIZE 4096
+
 /* A Client connectoin only has client socket details
  *
  * a client file descriptor
@@ -24,6 +30,8 @@ typedef struct {
   int client_fd;
   struct sockaddr_storage addr;
   socklen_t addr_len;
+  char buffer[BUFFER_SIZE];
+  size_t bytes_processed;
 } ClientConnection;
 /* Server handles only networking and threading
  *
@@ -46,4 +54,5 @@ typedef struct {
 // core functions
 int tcp_server_start(TCPServer *server);
 void tcp_server_stop(TCPServer *server);
+
 #endif
