@@ -28,6 +28,7 @@ typedef struct {
 /* Server handles only networking and threading
  *
  * socket file descriptor
+ * epoll instance for event driven model
  * port number
  * backlog is max number of pending connections
  * a function pointer for handling generic client reqs
@@ -37,6 +38,7 @@ typedef struct {
  */
 typedef struct {
   int socket_fd;
+  int epoll_fd;
   int port;
   int backlog;
   void (*handle_request)(ClientConnection *client);
