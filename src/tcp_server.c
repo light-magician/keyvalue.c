@@ -8,13 +8,30 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-int bind_socket_to_addr(TCPServer *server) {
+// client connection being handled
+// date shared accross client connections
+typedef struct {
+  ClientConnection *client;
+  void *shared_data;
+} ThreadContext;
+
+int bind_socket(TCPServer *server) {
   // search through address structures for a match to bind socket to
-  struct addrinfo *addr;
+  struct addrinfo hints = {0}, *server_info, *addr;
+  char port_str[6];
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = AI_PASSIVE;
+  snprintf(port_str, sizeof(port_str), "%d", server->port);
+
+  if (getaddrinfo(NULL, port_str, &hints, &server_info) != 0) {
+    return -1;
+  }
+
   int set_reuse = 1;
   // linked list iteration, set new addr pointer to head of list
   //  server->info and progress to ai_next until that is null
-  for (addr = server->server_info; addr != NULL; addr = addr->ai_next) {
+  for (addr = server_info; addr != NULL; addr = addr->ai_next) {
     server->socket_fd =
         socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
     if (server->socket_fd < 0) {
@@ -30,24 +47,53 @@ int bind_socket_to_addr(TCPServer *server) {
     }
     close(server->socket_fd);
   }
-  // verify address
-  if (addr == NULL) {
-    fprintf(stderr, "failed to bind to any address\n");
-    freeaddrinfo(server->server_info);
-    return -1;
-  }
-  return 0;
+  // can actually free server_info here as the socket is bound
+  freeaddrinfo(server_info);
+  // pass or fail depends on if addr has a value
+  return (addr != NULL) ? 0 : -1;
 }
 
-int handle_client_request(ClientConnection *client) {
-  const char *msg = "hello";
-  ssize_t msg_len = strlen(msg);
-  ssize_t bytes_sent = send(client->client_fd, msg, msg_len, 0);
-
-  if (bytes_sent < 0 || bytes_sent != msg_len) {
-    return -1;
+int *handle_client_thread(void *arg) {
+  // argo should end up a client
+  ClientConnection *client = (ClientConnection *)arg;
+  // handle if server has a defined handle function
+  if (server->handle_request) {
+    server->handle_request(client);
   }
-  return 0;
+  // cleanup client once handled
+  close(client->client_fd);
+  free(client);
+  return NULL;
+}
+
+ClientConnection *accept_client_connection(TCPServer *server) {
+  // heap allocate a client and return a pointer to it
+  ClientConnection *client = malloc(sizeof(ClientConnection));
+  if (!client) {
+    return NULL;
+  }
+  // zero out memory to prevent undefined behavior
+  memset(client, 0, sizeof(ClientConnection));
+  // not a pointer to client so no need for ->
+  client->addr_len = sizeof(client->addr);
+  client->client_fd = accept(
+      server->socket_fd, (struct sockaddr *)&client->addr, &client->addr_len);
+  if (client->client_fd < 0) {
+    free(client);
+    return NULL;
+  }
+  printf("server accepted new client connection\n");
+  return client;
+}
+
+void *handle_client_thread(void *arg) {
+  // create a client connection out of the arg
+  ClientConnection *client = (ClientConnection *)arg;
+  // server handles handle req
+  server->handle_request(client);
+  close(client->client_fd);
+  free(client);
+  return NUll; // TODO: maybe we return success here
 }
 
 int tcp_server_init(TCPServer *server, int port, int num_connections) {
@@ -91,25 +137,4 @@ int tcp_server_init(TCPServer *server, int port, int num_connections) {
   }
   printf("server terminated");
   return 0;
-}
-
-ClientConnection *accept_client_connection(TCPServer *server) {
-  // heap allocate a client and return a pointer to it
-  ClientConnection *client =
-      malloc(sizeof(ClientConnection)); // initialize w zeros and NULL
-  if (!client) {
-    return NULL;
-  }
-  // zero out memory to prevent undefined behavior
-  memset(client, 0, sizeof(ClientConnection));
-  // not a pointer to client so no need for ->
-  client->addr_len = sizeof(client->addr);
-  client->client_fd = accept(
-      server->socket_fd, (struct sockaddr *)&client->addr, &client->addr_len);
-  if (client->client_fd < 0) {
-    free(client);
-    return NULL;
-  }
-  printf("server accepted new client connection\n");
-  return client;
 }

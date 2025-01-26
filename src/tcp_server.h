@@ -12,23 +12,8 @@
 //  like getaddrinfo(), gethostbyname(), and
 //  protocol independent name resolution
 #include <netdb.h>
-
-/*
- * address info settings
- * pointer to linked list of server address info
- * socket file descriptor
- * port number
- * the number of connections the server will accept
- */
-typedef struct {
-  struct addrinfo hints;
-  struct addrinfo *server_info;
-  int socket_fd;
-  int port;
-  int num_connections;
-} TCPServer;
-
-/*
+/* A Client connectoin only has client socket details
+ *
  * a client file descriptor
  * a way to store socket addresses
  *   of various types IPv4 and IPv6
@@ -40,11 +25,25 @@ typedef struct {
   struct sockaddr_storage addr;
   socklen_t addr_len;
 } ClientConnection;
-
-ClientConnection *accept_client_connection(TCPServer *server);
-int handle_client_request(ClientConnection *client);
-int bind_socket_to_addr(TCPServer *server);
-int tcp_server_init(TCPServer *server, int port, int num_connections);
-void tcp_server_cleanup(TCPServer *server);
-
+/* Server handles only networking and threading
+ *
+ * socket file descriptor
+ * epoll instance for event driven model
+ * port number
+ * backlog is max number of pending connections
+ * a function pointer for handling generic client reqs
+ *  that syntax is a void pointer to a request handler function
+ *  that has a void pointer as a return type for flexible
+ *  returning behavior
+ */
+typedef struct {
+  int socket_fd;
+  int epoll_fd;
+  int port;
+  int backlog;
+  void (*handle_request)(ClientConnection *client);
+} TCPServer;
+// core functions
+int tcp_server_start(TCPServer *server);
+void tcp_server_stop(TCPServer *server);
 #endif
