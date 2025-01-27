@@ -33,6 +33,16 @@ A tiny key value store with asynchronous handling in pure C.
 - non-blocking socket operations
 - event handler callback pattern
 
+### Container
+
+This code was developed in a linux docker container on an
+arm64 macbook pro.
+
+```bash
+docker build -t keyvalue
+docker run -v $(pwd):/code --name keyvalue.c -it keyvalue
+```
+
 ### compiling
 
 ```bash
