@@ -14,6 +14,13 @@ typedef struct {
   ClientConnection *client;
   void *shared_data;
 } ThreadContext;
+// configuration to make socket non blocking
+static int make_socket_non_blocking(int fd) {
+  int flags = fcntl(fd, F_GETFL, 0);
+  if (flags == -1)
+    return -1;
+  return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
 
 int bind_socket(TCPServer *server) {
   // search through address structures for a match to bind socket to
@@ -43,6 +50,7 @@ int bind_socket(TCPServer *server) {
       continue;
     }
     if (bind(server->socket_fd, addr->ai_addr, addr->ai_addrlen) == 0) {
+      make_socket_non_blocking(server->socket_fd);
       break; // Successfully bound
     }
     close(server->socket_fd);
