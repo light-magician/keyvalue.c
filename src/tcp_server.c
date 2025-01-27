@@ -61,88 +61,94 @@ int bind_socket(TCPServer *server) {
   return (addr != NULL) ? 0 : -1;
 }
 
-int *handle_client_thread(void *arg) {
-  // argo should end up a client
-  ClientConnection *client = (ClientConnection *)arg;
-  // handle if server has a defined handle function
-  if (server->handle_request) {
-    server->handle_request(client);
-  }
-  // cleanup client once handled
-  close(client->client_fd);
-  free(client);
-  return NULL;
+static int init_epoll(TCPServer *server) {
+  server->epoll_fd = epoll_create1(0);
+  if (server->epoll_fd < 0)
+    return -1;
+
+  struct epoll_event ev = {.events = EPOLLIN | EPOLLET,
+                           .data.fd = server->socket_fd};
+
+  return epoll_ctl(server->epoll_fd, EPOLL_CTL_ADD, server->socket_fd, &ev);
 }
 
-ClientConnection *accept_client_connection(TCPServer *server) {
-  // heap allocate a client and return a pointer to it
+static int handle_new_connection(TCPServer *server) {
   ClientConnection *client = malloc(sizeof(ClientConnection));
-  if (!client) {
-    return NULL;
-  }
-  // zero out memory to prevent undefined behavior
-  memset(client, 0, sizeof(ClientConnection));
-  // not a pointer to client so no need for ->
   client->addr_len = sizeof(client->addr);
+
   client->client_fd = accept(
       server->socket_fd, (struct sockaddr *)&client->addr, &client->addr_len);
+
   if (client->client_fd < 0) {
-    free(client);
-    return NULL;
-  }
-  printf("server accepted new client connection\n");
-  return client;
-}
-
-void *handle_client_thread(void *arg) {
-  // create a client connection out of the arg
-  ClientConnection *client = (ClientConnection *)arg;
-  // server handles handle req
-  server->handle_request(client);
-  close(client->client_fd);
-  free(client);
-  return NUll; // TODO: maybe we return success here
-}
-
-int tcp_server_init(TCPServer *server, int port, int num_connections) {
-  memset(server, 0, sizeof(TCPServer));
-  memset(&server->hints, 0, sizeof(server->hints));
-  // set address information
-  server->hints.ai_family = AF_UNSPEC;     // IPv4 and IPv6 support
-  server->hints.ai_socktype = SOCK_STREAM; // set TCP
-  server->hints.ai_flags = AI_PASSIVE;     // wildcard IP addresses
-  server->port = port;
-  server->num_connections = num_connections;
-  // convert port int to string for getaddrinfo for any int size wo overflow
-  char port_str[6];
-  snprintf(port_str, sizeof(port_str), "%d", port);
-  int status =
-      getaddrinfo(NULL, port_str, &server->hints, &server->server_info);
-  if (status != 0) {
-    fprintf(stderr, "get address info error: %s\n", gai_strerror(status));
-    return -1;
-  }
-  if (bind_socket_to_addr(server) < 0) {
-    fprintf(stderr, "server initialization failed");
-    return -1;
-  }
-  // listen for connections
-  if (listen(server->socket_fd, server->num_connections) < 0) {
-    close(server->socket_fd);
-    freeaddrinfo(server->server_info);
-    return -1;
-  }
-  printf("server initialized");
-
-  while (1) {
-    ClientConnection *client = accept_client_connection(server);
-    if (client->client_fd < 0) {
-      continue;
+    if (errno != EAGAIN && errno != EWOULDBLOCK) {
+      fprintf(stderr, "accept error\n");
     }
-    handle_client_request(client);
+    free(client);
+    return -1;
+  }
+
+  make_socket_non_blocking(client->client_fd);
+
+  struct epoll_event ev = {.events = EPOLLIN | EPOLLET, .data.ptr = client};
+
+  if (epoll_ctl(server->epoll_fd, EPOLL_CTL_ADD, client->client_fd, &ev) < 0) {
     close(client->client_fd);
     free(client);
+    return -1;
   }
-  printf("server terminated");
+
   return 0;
+}
+
+static int event_loop(TCPServer *server) {
+  struct epoll_event events[MAX_EVENTS];
+
+  while (1) {
+    int nfds = epoll_wait(server->epoll_fd, events, MAX_EVENTS, -1);
+    if (nfds < 0) {
+      if (errno == EINTR)
+        continue;
+      return -1;
+    }
+
+    for (int i = 0; i < nfds; i++) {
+      if (events[i].data.fd == server->socket_fd) {
+        while (handle_new_connection(server) == 0)
+          ;
+      } else {
+        server->handle_event((ClientConnection *)events[i].data.ptr,
+                             events[i].events);
+      }
+    }
+  }
+}
+
+int tcp_server_start(TCPServer *server) {
+  if (!server->handle_event)
+    return -1;
+  if (server->port <= 0)
+    server->port = 8080;
+  if (server->backlog <= 0)
+    server->backlog = 10;
+
+  if (bind_socket(server) < 0)
+    return -1;
+  if (init_epoll(server) < 0)
+    return -1;
+  if (listen(server->socket_fd, server->backlog) < 0)
+    return -1;
+
+  return event_loop(server);
+}
+
+void tcp_server_stop(TCPServer *server) {
+  if (server->epoll_fd >= 0) {
+    close(server->epoll_fd);
+    server->epoll_fd = -1;
+  }
+
+  if (server->socket_fd >= 0) {
+    close(server->socket_fd);
+    server->socket_fd = -1;
+  }
 }
