@@ -92,3 +92,28 @@ void thread_pool_enqueue(thread_pool *pool, connection_task *task) {
   // unlock the queue mutex
   pthread_mutex_unlock(&pool->queue_mutex);
 }
+
+/*
+ * Destroys the thread_pool.
+ *
+ * Locks the queue_mutex for thread safety.
+ * Marks shutdown flag.
+ * Braodcasts to threads the altered condition.
+ * Unlocks queue_mutex.
+ * Joins threads.
+ * Destroys queue_mutex.
+ * Destroys queue_cond.
+ */
+void thread_pool_destroy(thread_pool *pool) {
+  pthread_mutex_lock(&pool->queue_mutex);
+  pool->shutdown = 1;
+  pthread_cond_broadcast(&pool->queue_cond);
+  pthread_mutex_unlock(&pool->queue_mutex);
+
+  for (int i = 0; i < pool->thread_count; i++) {
+    pthread_join(pool->threads[i], NULL);
+  }
+
+  pthread_mutex_destroy(&pool->queue_mutex);
+  pthread_cond_destroy(&pool->queue_cond);
+}
