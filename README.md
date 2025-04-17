@@ -26,3 +26,20 @@ make # build
 make run # build and run
 make clean # remove build files
 ```
+
+### Testing
+
+in the `src/` directory
+compile and link files for a test, then run the output binary
+
+```bash
+gcc thread_model_test.c thread_model.c -o thread_model_test.o -lpthread
+./thread_model_test.o
+```
+
+Currently Active test compile and run commands:
+
+```bash
+gcc thread_model_test.c thread_model.c -o thread_model_test.o -lpthread
+./thread_model_test.o
+```
