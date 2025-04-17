@@ -1,5 +1,36 @@
 
 #ifndef THREAD_MODEL_H
+#define THREAD_MODEL_H
+
+#include <pthread.h>
+#include <stdlib.h>
+
+#define MAX_WORKERS 8
+#define TASK_QUEUE_CAPACITY 128
+
+/*
+ * Enum for defining spectrum of task types
+ */
+typedef enum {
+  TASK_GET,
+  TASK_PUT,
+  TASK_DELETE,
+} TaskType;
+/*
+ * A connection_task contains all data related to
+ *       an executing task
+ * client_fd: reference to client's file descriptor
+ * key: a reference to the key to the stored object
+ * value: a reference to the value of a stored object
+ * value_len: data length of stored value
+ */
+typedef struct {
+  TaskType type;
+  int client_fd;
+  char key[256];
+  char *value;
+  size_t value_len;
+} connection_task;
 
 /*
  * A struct for managing a queue of requests
@@ -26,11 +57,18 @@ typedef struct {
   int thread_count;
   pthread_mutex_t queue_mutex;
   pthread_cond_t queue_cond;
-  connection_task *task_queue;
+  connection_task *task_queue[TASK_QUEUE_CAPACITY];
   int queue_size;
   int queue_head;
   int queue_tail;
   int shutdown;
 } thread_pool;
+
+/*
+ * Thread pool functions
+ */
+int thread_pool_init(thread_pool *pool, int num_threads);
+void thread_pool_enqueue(thread_pool *pool, connection_task *task);
+void thread_pool_destroy(thread_pool *pool);
 
 #endif // !THREAD_MODEL_H
