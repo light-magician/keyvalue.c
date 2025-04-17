@@ -13,7 +13,6 @@
 //  protocol independent name resolution
 #include <netdb.h>
 // event driven polling
-#include <sys/epoll.h>
 
 #define MAX_EVENTS 64
 #define BUFFER_SIZE 4096
@@ -30,13 +29,12 @@ typedef struct {
   int client_fd;
   struct sockaddr_storage addr;
   socklen_t addr_len;
-  char buffer[BUFFER_SIZE];
-  size_t bytes_processed;
 } ClientConnection;
 /* Server handles only networking and threading
  *
  * socket file descriptor
- * epoll instance for event driven model
+ * server hints
+ * server info
  * port number
  * backlog is max number of pending connections
  * a function pointer for handling generic client reqs
@@ -46,9 +44,9 @@ typedef struct {
  */
 typedef struct {
   int socket_fd;
-  int epoll_fd;
+  struct addrinfo hints;
+  struct addrinfo *server_info;
   int port;
-  int backlog;
   void (*handle_request)(ClientConnection *client);
 } TCPServer;
 // core functions

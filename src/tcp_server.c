@@ -15,12 +15,6 @@ typedef struct {
   void *shared_data;
 } ThreadContext;
 // configuration to make socket non blocking
-static int make_socket_non_blocking(int fd) {
-  int flags = fcntl(fd, F_GETFL, 0);
-  if (flags == -1)
-    return -1;
-  return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-}
 
 int bind_socket(TCPServer *server) {
   // search through address structures for a match to bind socket to
@@ -59,96 +53,4 @@ int bind_socket(TCPServer *server) {
   freeaddrinfo(server_info);
   // pass or fail depends on if addr has a value
   return (addr != NULL) ? 0 : -1;
-}
-
-static int init_epoll(TCPServer *server) {
-  server->epoll_fd = epoll_create1(0);
-  if (server->epoll_fd < 0)
-    return -1;
-
-  struct epoll_event ev = {.events = EPOLLIN | EPOLLET,
-                           .data.fd = server->socket_fd};
-
-  return epoll_ctl(server->epoll_fd, EPOLL_CTL_ADD, server->socket_fd, &ev);
-}
-
-static int handle_new_connection(TCPServer *server) {
-  ClientConnection *client = malloc(sizeof(ClientConnection));
-  client->addr_len = sizeof(client->addr);
-
-  client->client_fd = accept(
-      server->socket_fd, (struct sockaddr *)&client->addr, &client->addr_len);
-
-  if (client->client_fd < 0) {
-    if (errno != EAGAIN && errno != EWOULDBLOCK) {
-      fprintf(stderr, "accept error\n");
-    }
-    free(client);
-    return -1;
-  }
-
-  make_socket_non_blocking(client->client_fd);
-
-  struct epoll_event ev = {.events = EPOLLIN | EPOLLET, .data.ptr = client};
-
-  if (epoll_ctl(server->epoll_fd, EPOLL_CTL_ADD, client->client_fd, &ev) < 0) {
-    close(client->client_fd);
-    free(client);
-    return -1;
-  }
-
-  return 0;
-}
-
-static int event_loop(TCPServer *server) {
-  struct epoll_event events[MAX_EVENTS];
-
-  while (1) {
-    int nfds = epoll_wait(server->epoll_fd, events, MAX_EVENTS, -1);
-    if (nfds < 0) {
-      if (errno == EINTR)
-        continue;
-      return -1;
-    }
-
-    for (int i = 0; i < nfds; i++) {
-      if (events[i].data.fd == server->socket_fd) {
-        while (handle_new_connection(server) == 0)
-          ;
-      } else {
-        server->handle_event((ClientConnection *)events[i].data.ptr,
-                             events[i].events);
-      }
-    }
-  }
-}
-
-int tcp_server_start(TCPServer *server) {
-  if (!server->handle_event)
-    return -1;
-  if (server->port <= 0)
-    server->port = 8080;
-  if (server->backlog <= 0)
-    server->backlog = 10;
-
-  if (bind_socket(server) < 0)
-    return -1;
-  if (init_epoll(server) < 0)
-    return -1;
-  if (listen(server->socket_fd, server->backlog) < 0)
-    return -1;
-
-  return event_loop(server);
-}
-
-void tcp_server_stop(TCPServer *server) {
-  if (server->epoll_fd >= 0) {
-    close(server->epoll_fd);
-    server->epoll_fd = -1;
-  }
-
-  if (server->socket_fd >= 0) {
-    close(server->socket_fd);
-    server->socket_fd = -1;
-  }
 }
