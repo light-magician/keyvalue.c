@@ -28,7 +28,7 @@ static void *worker_loop(void *arg) {
     }
     // if shutdown flag, return thread pool to waiting state
     if (pool->shutdown) {
-      pthread_cond_wait(&pool->queue_cond, &pool->queue_mutex);
+      pthread_mutex_unlock(&pool->queue_mutex);
       break;
     }
     // pop from the front of the queue
